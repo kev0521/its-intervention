@@ -39,7 +39,7 @@ description: >-
 | `its_select_ar` | `(prep, spec, p_max = 4)` | AIC／BIC 表、`$best_p` |
 | `its_effects` | `(fit, prep, k = NULL, level = 0.95)` | `$table`（β1、β2、β3、β1+β3、各期效果）、`$relative`；說明用 `its_explain(eff, prep, y_label, unit)` |
 | `its_plot` | `(fit, prep, file, y_label, title)` | 觀測、配適、反事實線 |
-| `its_sensitivity` | `(main, prep, which, covariates, transition, pre_window, data)`；`which` 可選 `"newey_west"`、`"covariates"`、`"transition"`、`"pre_window"`、`"quasipoisson"`；`transition` = 排除介入後前幾期；`pre_window` = 介入前保留最近幾**期**（月資料保留 8 年就是 96）；這兩項都要搭配 `data`（原始資料框） | 每個模型的 β2、β3；說明用 `its_explain_sens(sens)` |
+| `its_sensitivity` | `(main, prep, which, covariates, transition, pre_window, data)`；`which` 可選 `"newey_west"`、`"covariates"`、`"transition"`、`"pre_window"`、`"quasipoisson"`；`transition` = 排除介入後前幾期；`pre_window` = 介入前保留最近幾**期**（月資料保留 8 年就是 96）；這兩項都要搭配 `data`（原始資料框） | 每個模型的 β2、β3；說明用 `its_explain_sens(sens)`；每一項在做什麼的說明表用 `its_sens_guide(sens)` |
 
 ### 報告的 `state` 欄位（`its_write_report(state, out_dir, SKILL_DIR, analysis_finished = TRUE)`）
 
@@ -133,7 +133,7 @@ description: >-
 | 結果是計數資料 | `quasipoisson`（報率比） | — |
 
 1. 先用一句話告訴使用者要做哪幾項、為什麼（對應上表的條件），然後執行 `sens <- its_sensitivity(main, prep, which, covariates, transition, pre_window, data)`。
-2. 用 `its_explain_sens(sens)` 的內容說明：方向是否一致、有幾個模型顯著、結論穩不穩健。
+2. 用 `its_explain_sens(sens)` 的內容說明，**β2（水準變化）和 β3（斜率變化）都要說**：方向是否一致、有幾個模型顯著、結論穩不穩健。報告的敏感度圖也是 β2、β3 左右並列。
 3. Newey–West 的 SE 比 OLS 還小時，一定要提醒它在小樣本不可靠。
 4. **主要模型是 GLS 時，「OLS（未處理自相關）」和所有 Newey–West 結果只當對照**，不能拿來說「結論穩健」（模擬中誤判率約 20–30%）。`its_explain_sens()` 已經自動排除，自己補充說明時也要遵守。
 5. 使用者看完結果後，主動要求加做其他項目或改參數時，照做並更新報告；skill 不主動詢問。

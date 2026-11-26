@@ -1,6 +1,7 @@
 ---
-title: "中斷時間序列（ITS）Skill"
+title: "中斷時間序列（Interrupted Time Series, ITS）Skill"
 subtitle: "用分段迴歸判斷「事件發生後，有沒有改變？」"
+author: "蔡文凱（R26141073）"
 date: "2026-11-27"
 lang: zh-TW
 format:
@@ -203,19 +204,42 @@ cat(its_explain(e3, prep, "每月駕駛死亡數", " 人"))
 
 ## 敏感度分析
 
+主要模型是在一組假設下估出來的。敏感度分析每次**只改一個設定**重新估計，看 β2、β3 會不會跟著變：
+
+| 模型 | 怎麼做 | 檢查什麼疑慮 | 結果怎麼看 |
+|---|---|---|---|
+| **主要模型** GLS AR(1) ＋ 月份 | 基準 | — | 其他列都跟它比 |
+| **OLS（未處理自相關）** | 同樣的分段迴歸，但假設相鄰月份的誤差互相獨立 | 忽略自相關會怎樣 | 係數接近，但 CI 偏窄、容易誤判顯著，**只當對照** |
+| **OLS ＋ Newey–West** | OLS 的係數，改用 Newey–West 修正標準誤 | 另一種處理自相關的做法 | 小樣本下標準誤仍偏小，**只當對照** |
+| **＋ 共變數**（kms、PetrolPrice） | 模型加入每月行駛里程和油價 | **同時事件**：死亡下降會不會只是因為大家少開車、油價變貴 | 加入後 β2 仍為負且大小相近 → 下降不完全是交通量、油價造成的 |
+| **排除介入後前 2 期** | 1983-02、1983-03 不拿來估計 | **介入時間**：法律可能要一段時間才完全生效，頭幾個月可能異常 | β2 沒有變小 → 效果不是只靠頭兩個月撐起來的 |
+| **只用介入前最近 96 期** | 只用 1975-02 之後的介入前資料估趨勢 | **趨勢延續**：1973–74 石油危機讓介入前趨勢彎曲，直線外推的反事實可能不準 | β2 跟主要模型差不多或更明確 → 結論不是被早期那段彎曲帶出來的 |
+| **quasi-Poisson** | 把死亡數當計數資料，用率比表示效果，並允許變異比平均大 | **模型形式**：把計數當連續數值處理是否恰當 | 率比 < 1 表示下降；它的標準誤也用 Newey–West，CI 可能偏窄 |
+
 ```{r}
-#| label: fig-sens
+#| label: fig-sens-b2
 #| fig-width: 8.5
-#| fig-height: 3.6
+#| fig-height: 3.4
+#| fig-cap: "敏感度分析：β2 水準變化（點 = 估計值，橫線 = 95% CI，虛線 = 0）"
 sens <- its_sensitivity(m3, prep, covariates = c("kms", "PetrolPrice"),
                         transition = 2, pre_window = 96, data = sb)
 ss <- sens[!is.na(sens$b2) & sens$scale == "原尺度（差值）", ]
 ss$model <- factor(ss$model, levels = rev(ss$model))
-ggplot(ss, aes(b2, model)) +
-  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_errorbarh(aes(xmin = b2_lower, xmax = b2_upper), height = 0.25, colour = "#1f6feb") +
-  geom_point(size = 2.4, colour = "#1f6feb") +
-  labs(x = "β2 水準變化（95% CI）", y = NULL) + theme_minimal()
+forest <- function(est, lo, hi, xlab)
+  ggplot(ss, aes({{ est }}, model)) +
+    geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+    geom_errorbarh(aes(xmin = {{ lo }}, xmax = {{ hi }}), height = 0.25, colour = "#1f6feb") +
+    geom_point(size = 2.4, colour = "#1f6feb") +
+    labs(x = xlab, y = NULL) + theme_minimal()
+forest(b2, b2_lower, b2_upper, "β2 水準變化（人，95% CI）")
+```
+
+```{r}
+#| label: fig-sens-b3
+#| fig-width: 8.5
+#| fig-height: 3.4
+#| fig-cap: "敏感度分析：β3 斜率變化（點 = 估計值，橫線 = 95% CI，虛線 = 0）"
+forest(b3, b3_lower, b3_upper, "β3 斜率變化（人／月，95% CI）")
 ```
 
 ```{r}
@@ -229,24 +253,34 @@ role <- ifelse(grepl("^主要模型：", sens$model), "主要模型",
         ""))))))
 ok <- !is.na(sens$b2)
 rr <- grepl("率比", sens$scale)
-est <- ifelse(rr, sprintf("率比 %.3f（%.3f ~ %.3f）", sens$b2, sens$b2_lower, sens$b2_upper),
-                  sprintf("%.1f（%.1f ~ %.1f）", sens$b2, sens$b2_lower, sens$b2_upper))
-sig <- ifelse(rr, sens$b2_upper < 1 | sens$b2_lower > 1, sens$b2_upper < 0 | sens$b2_lower > 0)
-knitr::kable(data.frame(模型 = sens$model, 檢查什麼 = role, `β2（95% CI）` = est,
-                        `CI 不含 0（或 1）` = ifelse(sig, "是", "否"), check.names = FALSE)[ok, ],
-             row.names = FALSE, align = "llcc")
+fmt <- function(e, l, u, d) ifelse(rr, sprintf("率比 %.3f（%.3f ~ %.3f）", e, l, u),
+                                       sprintf(paste0("%.", d, "f（%.", d, "f ~ %.", d, "f）"), e, l, u))
+null <- ifelse(rr, 1, 0)
+star <- function(l, u) ifelse(u < null | l > null, " ✱", "")
+knitr::kable(data.frame(
+  模型 = sens$model, 檢查什麼 = role,
+  `β2 水準變化（95% CI）` = paste0(fmt(sens$b2, sens$b2_lower, sens$b2_upper, 1), star(sens$b2_lower, sens$b2_upper)),
+  `β3 斜率變化（95% CI）` = paste0(fmt(sens$b3, sens$b3_lower, sens$b3_upper, 2), star(sens$b3_lower, sens$b3_upper)),
+  check.names = FALSE)[ok, ], row.names = FALSE, align = "llcc")
+# 不列入判斷的對照模型：OLS、Newey–West（quasi-Poisson 的 CI 也用 Newey–West）
+judge <- ok & !rr & !grepl("Newey|^OLS", sens$model)
+n_j <- sum(judge)
+b2_sig <- sum(sens$b2_upper[judge] < 0 | sens$b2_lower[judge] > 0)
+b3_sig <- sum(sens$b3_upper[judge] < 0 | sens$b3_lower[judge] > 0)
 ```
 
-- **方向**：所有模型都是下降，「死亡數下降」這件事很一致。
-- **顯著性**：撇開只當對照的 OLS 和 Newey–West，有的模型 CI 不含 0、有的剛好含 0 → 「介入當下的跳動是否顯著」取決於設定，不穩健。
+✱ = 95% CI 不含 0（率比則為不含 1）。
 
-**結論**：安全帶法上路後，每月駕駛死亡數**方向一致地下降**（約 16–26 人，或約 19%）；但在把自相關納入考量的主要模型中，水準變化的 95% CI 剛好包含 0。比較精確的說法是「資料支持法律降低了駕駛死亡，但單看介入當下的跳動，統計上仍有不確定性」，而不是簡單的「有效／無效」。這正是 skill 要求同時呈現 CI 和敏感度分析的原因。
+- **β2 水準變化**：所有模型都是下降。撇開只當對照的 OLS 和 Newey–West，`r n_j` 個模型中有 `r b2_sig` 個顯著 →「介入當下的跳動是否顯著」取決於設定，不穩健。
+- **β3 斜率變化**：`r n_j` 個模型中有 `r b3_sig` 個顯著，點估計都接近 0 →`r if (b3_sig == 0) "在所有設定下都**沒有證據顯示趨勢改變**。" else "趨勢改變的證據取決於設定。"`介入後只有 23 個月，斜率本來就不容易估準。
+
+**結論**：安全帶法上路後，每月駕駛死亡數**方向一致地下降**（約 16–26 人，或約 19%）；但在把自相關納入考量的主要模型中，水準變化的 95% CI 剛好包含 0。趨勢則在所有設定下都沒有證據顯示改變。比較精確的說法是「資料支持法律降低了駕駛死亡，但單看介入當下的跳動，統計上仍有不確定性」，而不是簡單的「有效／無效」。這正是 skill 要求同時呈現 CI 和敏感度分析的原因。
 
 # 06｜限制與貢獻
 
 **限制**
 
-- ITS 的因果解釋建立在「趨勢延續」和「沒有同時事件」兩個無法直接檢定的假設上；skill 只能追問、做敏感度分析，不能保證。
+- ITS 的因果解釋建立在「趨勢延續」和「沒有同時事件」兩個無法直接檢定的假設上；skill 只能追問、做敏感度分析，不能保證假設成立。
 - 第一版只支援單一序列、單一介入點；**不支援**控制序列、多個介入點、面板資料。
 - GLS 在小樣本下略為寬鬆（模擬涵蓋率約 92–93%，見 skill 內的 `VALIDATION.md`）。
 - 計數資料的 quasi-Poisson 只用 Newey–West 處理自相關，小樣本同樣不可靠。

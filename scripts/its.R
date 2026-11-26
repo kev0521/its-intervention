@@ -776,33 +776,85 @@ its_explain_sens <- function(sens) {
   main_is_gls <- any(grepl("^主要模型：.*GLS", s_all$model))
   contrast <- grepl("Newey", s_all$model) | (main_is_gls & grepl("^OLS", s_all$model))
   s <- s_all[!contrast, ]
-  same_dir <- all(sign(s_all$b2) == sign(s_all$b2[1]))
-  n_sig <- sum(s$b2_upper < 0 | s$b2_lower > 0)
-  out <- sprintf("在 %d 個原尺度模型中，β2 的估計介於 %.2f 到 %.2f，%s。",
-                 nrow(s_all), min(s_all$b2), max(s_all$b2),
-                 if (same_dir) "方向全部一致" else "**方向不一致**，結論不穩健")
+
+  one <- function(est, lo, hi, name, what) {
+    e_all <- s_all[[est]]
+    sig <- s[[hi]] < 0 | s[[lo]] > 0
+    n_sig <- sum(sig)
+    same_dir <- all(sign(e_all) == sign(e_all[1]))
+    head <- sprintf("**%s**：%d 個原尺度模型的估計介於 %.2f 到 %.2f，%s。",
+                    name, nrow(s_all), min(e_all), max(e_all),
+                    if (same_dir) "方向全部一致" else "正負都有")
+    if (nrow(s) <= 1) {
+      return(paste0(head, "撇開只當對照的模型，只剩主要模型本身，沒有其他設定可以比較，所以**無法判斷是否穩健**。"))
+    }
+    body <- sprintf("撇開只當對照的模型，%d 個模型中有 %d 個的 95%% CI 不含 0。", nrow(s), n_sig)
+    concl <- if (n_sig == 0 && !same_dir) sprintf("估計都在 0 附近，在所有設定下都**沒有證據顯示%s**。", what)
+             else if (n_sig == 0) sprintf("方向一致但都不顯著：**沒有足夠證據顯示%s**，不確定性大（不等於證明沒有）。", what)
+             else if (n_sig == nrow(s) && same_dir) "這些設定都顯著，結論穩健。"
+             else if (!same_dir) "**方向不一致**，這個結論不穩健。"
+             else "顯著與否取決於模型設定：方向可信，但「是否顯著」不穩健，報告時以主要模型為準並同時呈現這些結果。"
+    paste0(head, body, concl)
+  }
+
+  out <- c(one("b2", "b2_lower", "b2_upper", "水準變化 β2", "水準變化"),
+           one("b3", "b3_lower", "b3_upper", "斜率變化 β3", "趨勢改變"))
   if (any(contrast)) {
     out <- c(out, sprintf("%s的標準誤已知偏小（模擬中誤判率約 20–30%%），只當對照，不列入顯著性判斷。",
                           paste(s_all$model[contrast], collapse = "、")))
   }
-  if (nrow(s) <= 1) {
-    out <- c(out, "撇開只當對照的模型，只剩主要模型本身，沒有其他設定可以比較，所以**無法判斷結論是否穩健**；只能說對照模型的方向與主要模型一致。")
-  } else {
-  out <- c(out, sprintf("其餘 %d 個模型中，%d 個的 95%% CI 不含 0。", nrow(s), n_sig))
-  out <- c(out, if (n_sig == 0) "效果方向一致但都不顯著：資料支持「可能有效果」，但不確定性大。"
-                else if (n_sig == nrow(s)) "這些設定都顯著，結論穩健。"
-                else "顯著與否取決於模型設定：效果方向可信，但「是否顯著」不穩健，報告時應以主要模型為準並同時呈現這些結果。")
-  }
   qp <- sens[grepl("quasi-Poisson", sens$model) & !is.na(sens$b2), ]
   if (nrow(qp)) {
-    out <- c(out, sprintf("計數模型（quasi-Poisson）的水準變化率比 = %.3f（95%% CI %.3f 到 %.3f），即介入當下約%s %.1f%%；它的標準誤用 Newey–West，CI 可能偏窄。",
+    out <- c(out, sprintf("計數模型（quasi-Poisson）的水準變化率比 = %.3f（95%% CI %.3f 到 %.3f），即介入當下約%s %.1f%%；斜率變化率比 = %.4f（95%% CI %.4f 到 %.4f）。它的標準誤用 Newey–West，CI 可能偏窄。",
                           qp$b2, qp$b2_lower, qp$b2_upper,
-                          if (qp$b2 < 1) "減少" else "增加", 100 * abs(qp$b2 - 1)))
+                          if (qp$b2 < 1) "減少" else "增加", 100 * abs(qp$b2 - 1),
+                          qp$b3, qp$b3_lower, qp$b3_upper))
   }
   if (any(grepl("Newey", sens$note))) {
     out <- c(out, "Newey–West 的標準誤比 OLS 還小，這在介入後點數少時常見，不能據此認為結果更精確。")
   }
-  paste(out, collapse = "")
+  paste(out, collapse = "\n\n")
+}
+
+# 每一項敏感度分析在做什麼：依實際做了哪些項目產生說明表（給報告用）
+its_sens_guide <- function(sens) {
+  s <- sens[!is.na(sens$b2), ]
+  if (!nrow(s)) return(data.frame())
+  rx <- function(pat, x) { m <- regmatches(x, regexec(pat, x))[[1]]; if (length(m) > 1) m[2] else "" }
+  rows <- lapply(s$model, function(m) {
+    if (grepl("^主要模型：", m)) {
+      c("基準", "—", "其他列都跟它比")
+    } else if (grepl("quasi-Poisson", m)) {
+      c("把結果當計數資料，用率比表示效果，並允許變異比平均大",
+        "**模型形式**：把計數當連續數值處理是否恰當",
+        "率比 < 1 表示下降、> 1 表示上升；它的標準誤也用 Newey–West，CI 可能偏窄")
+    } else if (grepl("Newey", m)) {
+      c("OLS 的係數，改用 Newey–West 修正標準誤",
+        "另一種處理自相關的做法",
+        "小樣本下標準誤仍偏小，**只當對照**")
+    } else if (grepl("^OLS", m)) {
+      c("同樣的分段迴歸，但假設相鄰期的誤差互相獨立",
+        "忽略自相關會怎樣",
+        "係數通常接近，但 CI 偏窄、容易誤判顯著，**只當對照**")
+    } else if (grepl("共變數", m)) {
+      c(sprintf("模型加入同期變數（%s）", rx("共變數（(.*)）", m)),
+        "**同時事件**：結果的變化會不會其實是這些同期變數造成的",
+        "加入後 β2 方向、大小相近 → 效果不完全是這些變數造成的")
+    } else if (grepl("排除", m)) {
+      c(sprintf("介入後前 %s 期不拿來估計", rx("前 ([0-9]+) 期", m)),
+        "**介入時間**：介入可能要一段時間才完全生效，頭幾期可能異常",
+        "β2 沒有明顯變小 → 效果不是只靠頭幾期撐起來的")
+    } else if (grepl("只用介入前", m)) {
+      st <- rx("從 ([0-9-]+)", m)
+      c(if (nzchar(st)) sprintf("只用 %s 之後的介入前資料估趨勢", substr(st, 1, 7))
+        else sprintf("只用介入前最近 %s 期估趨勢", rx("最近 ([0-9]+) 期", m)),
+        "**趨勢延續**：介入前趨勢若彎曲，直線外推的反事實可能不準",
+        "β2 與主要模型相近或更明確 → 結論不是被較早那段資料帶出來的")
+    } else c("", "", "")
+  })
+  out <- data.frame(s$model, do.call(rbind, rows))
+  names(out) <- c("模型", "怎麼做", "檢查什麼疑慮", "結果怎麼看")
+  out
 }
 
 # ── 11. 保存與讀取分析狀態 ─────────────────────────────────────

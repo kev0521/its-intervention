@@ -190,18 +190,30 @@ sens <- its_sensitivity(main, prep, which = st$sens$which,
 print(sens)
 ```
 
+主要模型是在一組假設下估出來的。敏感度分析每次**只改一個設定**重新估計，看 β2、β3 會不會跟著變：
+
+```{r}
+#| label: sens-guide
+#| echo: false
+knitr::kable(its_sens_guide(sens), row.names = FALSE)
+```
+
 ```{r}
 #| label: sens-plot
 #| echo: false
-#| fig-width: 8
+#| fig-width: 9.5
 #| fig-height: 3.8
 ss <- sens[!is.na(sens$b2) & sens$scale == "原尺度（差值）", ]
-ss$model <- factor(ss$model, levels = rev(ss$model))
-ggplot(ss, aes(b2, model)) +
+long <- rbind(
+  data.frame(model = ss$model, par = "β2 水準變化", est = ss$b2, lo = ss$b2_lower, hi = ss$b2_upper),
+  data.frame(model = ss$model, par = "β3 斜率變化（每期）", est = ss$b3, lo = ss$b3_lower, hi = ss$b3_upper))
+long$model <- factor(long$model, levels = rev(ss$model))
+ggplot(long, aes(est, model)) +
   geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_errorbarh(aes(xmin = b2_lower, xmax = b2_upper), height = 0.25, colour = "#1f6feb") +
+  geom_errorbarh(aes(xmin = lo, xmax = hi), height = 0.25, colour = "#1f6feb") +
   geom_point(size = 2.4, colour = "#1f6feb") +
-  labs(x = "β2 水準變化（95% CI）", y = NULL, title = "各模型設定下的水準變化") +
+  facet_wrap(~ par, scales = "free_x") +
+  labs(x = "估計值（95% CI）", y = NULL, title = "各模型設定下的水準變化與斜率變化") +
   theme_minimal()
 ```
 
