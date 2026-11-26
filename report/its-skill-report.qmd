@@ -277,7 +277,7 @@ its-intervention/
 ├── scripts/its.R            所有計算函數
 ├── scripts/finalize_report.R 產生報告
 ├── references/              方法說明、決策樹
-├── assets/report.qmd        報告模板；seatbelts.csv、nile.csv
+├── assets/report.qmd        報告模板；seatbelts.csv
 ├── tests/validate.R         驗收腳本
 └── VALIDATION.md            驗收紀錄
 ```
