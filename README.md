@@ -123,9 +123,8 @@ Claude 會依第二章的流程逐階段進行，在每個確認點用選擇題�
 | 檔案 | 內容 |
 |---|---|
 | `assets/seatbelts.csv` | 英國安全帶法（1969–1984 月資料，1983-02 介入），有季節性與自相關，是完整示範。R 內建資料 `Seatbelts` |
-| `assets/nile.csv` | 尼羅河年流量（1871–1970，1898 年起水準下降），年資料、無季節性的簡單示範。R 內建資料 `Nile` |
 
-在 repo 根目錄執行 `Rscript demo_seatbelts/run_check.R`、`Rscript demo_seatbelts/make_report.R` 或 `Rscript demo_nile/run_nile.R` 可以直接重跑示範。
+在 repo 根目錄執行 `Rscript demo_seatbelts/run_check.R` 或 `Rscript demo_seatbelts/make_report.R` 可以直接重跑示範。
 
 ## 第四章　驗收
 
@@ -150,15 +149,14 @@ its-intervention/
 │   └── finalize_report.R    產生 Quarto 報告（its_write_report）
 ├── assets/
 │   ├── report.qmd           報告範本
-│   ├── seatbelts.csv        示範資料（月）
-│   └── nile.csv             示範資料（年）
+│   └── seatbelts.csv        示範資料（月）
 ├── references/
 │   ├── methods.md           方法細節
 │   └── decision-tree.md     決策流程
 ├── demo_seatbelts/          Seatbelts 示範腳本
-├── demo_nile/               Nile 示範腳本
 ├── tests/
 │   ├── validate.R           驗收腳本
+│   ├── data/nile.csv        驗收用的年資料（R 內建 Nile）
 │   └── results/coverage.png 模擬涵蓋率圖
 ├── report/                  期中報告
 │   ├── its-skill-report.qmd 期中報告原始檔（在此資料夾 render，會讀取 ../scripts 與 ../assets）

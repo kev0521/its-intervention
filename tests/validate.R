@@ -130,7 +130,7 @@ p <- its_prepare(base, "month", "DriversKilled", "1983-02", 12)
 e <- tryCatch({its_fit(p, its_spec(p, "dummy"), "ols"); "（沒有報錯）"},
               error = function(e) conditionMessage(e))
 rec("錯誤案例", "未確認就配適（approved = FALSE）", "報錯拒絕配適", e, grepl("尚未確認", e))
-e <- tryCatch({its_spec(its_prepare(read.csv("assets/nile.csv"), "year", "flow", 1899, 1), "dummy"); "（沒有報錯）"},
+e <- tryCatch({its_spec(its_prepare(read.csv("tests/data/nile.csv"), "year", "flow", 1899, 1), "dummy"); "（沒有報錯）"},
               error = function(e) conditionMessage(e))
 rec("錯誤案例", "年資料要求季節項", "報錯", e, grepl("年資料", e))
 
@@ -147,7 +147,7 @@ p <- its_prepare(base, "month", "DriversKilled", "1983-01-15", 12)
 rec("邊界案例", "介入時間不在月初", "以下一個觀測當起點並說明",
     paste(format(p$info$t0_time), paste(p$issues$message, collapse = "；")),
     p$status == "ok" && p$info$T0 == 170)
-nile <- read.csv("assets/nile.csv")
+nile <- read.csv("tests/data/nile.csv")
 p <- its_prepare(nile, "year", "flow", 1899, 1)
 m <- its_fit(p, its_spec(p, "none"), "ols", approved = TRUE)
 ef <- its_effects(m, p)

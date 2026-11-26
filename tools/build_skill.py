@@ -8,7 +8,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 INCLUDE = ["SKILL.md", "VALIDATION.md", "scripts", "assets", "references",
-           "tests", "demo_nile", "demo_seatbelts"]
+           "tests", "demo_seatbelts"]
 SKIP_DIRS = {"out", "report", "__pycache__"}
 
 out = ROOT / "its-intervention.zip"

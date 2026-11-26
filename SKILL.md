@@ -162,4 +162,3 @@ description: >-
 ## 示範
 
 `assets/seatbelts.csv`（英國安全帶法，1983-02 介入，月資料）是完整示範；`demo_seatbelts/` 有分析腳本和報告。
-`assets/nile.csv`（尼羅河年流量，1898 年水準變化）是年資料、沒有季節性的簡單示範。

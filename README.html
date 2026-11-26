@@ -5683,13 +5683,9 @@ Y_t = \beta_0 + \beta_1 T_t + \beta_2 X_t + \beta_3 (T_t - T_0)X_t + \text{季�
 <td><code>assets/seatbelts.csv</code></td>
 <td>英國安全帶法（1969–1984 月資料，1983-02 介入），有季節性與自相關，是完整示範。R 內建資料 <code>Seatbelts</code></td>
 </tr>
-<tr class="even">
-<td><code>assets/nile.csv</code></td>
-<td>尼羅河年流量（1871–1970，1898 年起水準下降），年資料、無季節性的簡單示範。R 內建資料 <code>Nile</code></td>
-</tr>
 </tbody>
 </table>
-<p>在 repo 根目錄執行 <code>Rscript demo_seatbelts/run_check.R</code>、<code>Rscript demo_seatbelts/make_report.R</code> 或 <code>Rscript demo_nile/run_nile.R</code> 可以直接重跑示範。</p>
+<p>在 repo 根目錄執行 <code>Rscript demo_seatbelts/run_check.R</code> 或 <code>Rscript demo_seatbelts/make_report.R</code> 可以直接重跑示範。</p>
 </section>
 </section>
 <section id="第四章-驗收" class="level2">
@@ -5738,15 +5734,14 @@ Y_t = \beta_0 + \beta_1 T_t + \beta_2 X_t + \beta_3 (T_t - T_0)X_t + \text{季�
 │   └── finalize_report.R    產生 Quarto 報告（its_write_report）
 ├── assets/
 │   ├── report.qmd           報告範本
-│   ├── seatbelts.csv        示範資料（月）
-│   └── nile.csv             示範資料（年）
+│   └── seatbelts.csv        示範資料（月）
 ├── references/
 │   ├── methods.md           方法細節
 │   └── decision-tree.md     決策流程
 ├── demo_seatbelts/          Seatbelts 示範腳本
-├── demo_nile/               Nile 示範腳本
 ├── tests/
 │   ├── validate.R           驗收腳本
+│   ├── data/nile.csv        驗收用的年資料（R 內建 Nile）
 │   └── results/coverage.png 模擬涵蓋率圖
 ├── report/                  期中報告
 │   ├── its-skill-report.qmd 期中報告原始檔（在此資料夾 render，會讀取 ../scripts 與 ../assets）
