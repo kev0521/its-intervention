@@ -160,7 +160,7 @@ its-intervention/
 ├── tests/
 │   ├── validate.R           驗收腳本
 │   └── results/coverage.png 模擬涵蓋率圖
-├── 期中報告/
+├── report/                  期中報告
 │   ├── its-skill-report.qmd 期中報告原始檔（在此資料夾 render，會讀取 ../scripts 與 ../assets）
 │   ├── its-skill-report.html
 │   └── figures/

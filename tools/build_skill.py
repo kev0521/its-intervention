@@ -1,6 +1,6 @@
 """重新打包 its-intervention.zip（在任何位置執行：python tools/build_skill.py）。
 
-只包含 skill 執行需要的檔案；README、期中報告、tools 不打包。
+只包含 skill 執行需要的檔案；README、report（期中報告）、tools 不打包。
 zip 內的根資料夾為 its-intervention/，解壓到 ~/.claude/skills/ 即可使用。
 """
 from pathlib import Path
