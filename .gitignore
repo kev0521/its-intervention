@@ -1,0 +1,10 @@
+.Rhistory
+.RData
+.Rproj.user/
+its_work*/
+demo_*/out/
+demo_*/report/
+build/
+README_build*
+*_files/
+.quarto/

@@ -1,0 +1,246 @@
+---
+title: "{{TITLE}}"
+subtitle: "中斷時間序列（ITS）分段迴歸分析報告"
+date: "{{DATE}}"
+lang: zh-TW
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    embed-resources: true
+    number-sections: true
+    code-tools: true
+    theme: cosmo
+execute:
+  echo: true
+  warning: false
+  message: false
+params:
+  state: "state.rds"
+---
+
+```{r}
+#| label: setup
+#| code-summary: "設定與讀取資料"
+source("its.R", encoding = "UTF-8")
+its_configure()
+st <- readRDS(params$state)
+dat <- read.csv(st$data_file, check.names = FALSE)
+prep <- its_prepare(dat, st$time, st$y, st$t0, st$freq,
+                    transition = st$transition, covariates = st$covariates)
+print(prep)
+```
+
+# 分析目的與設定
+
+**研究問題**：`r st$research_question`
+
+| 設定 | 內容 |
+|---|---|
+| 資料檔 | `r st$data_file`（`r prep$info$n` 筆） |
+| 時間欄位 | `r st$time` |
+| 結果變數 | `r st$y`（`r st$y_label`） |
+| 介入起點 | `r format(prep$info$t0_time)`（第 `r prep$info$T0` 期） |
+| 資料頻率 | `r st$freq` |
+| 過渡期 | `r if (st$transition == 0) "無（立即生效）" else paste(st$transition, "期")` |
+| 介入前後的其他事件 | `r st$context_events` |
+
+模型為分段迴歸：
+
+$$
+Y_t = \beta_0 + \beta_1 T_t + \beta_2 X_t + \beta_3 (T_t - T_0) X_t + \text{季節項} + \varepsilon_t
+$$
+
+$\beta_2$ 是介入當下的**水準變化**，$\beta_3$ 是介入後的**斜率變化**；把介入前趨勢延伸下去就是「沒有介入」的反事實。
+
+<!-- stage: explore -->
+# 資料探索
+
+```{r}
+#| label: explore
+ex <- its_explore(prep, "figures", st$y_label)
+print(ex)
+```
+
+![](figures/explore_timeseries.png)
+
+```{r}
+#| label: season-fig
+#| echo: false
+#| results: asis
+if (!is.null(ex$files["season"]) && !is.na(ex$files["season"])) cat("![](figures/explore_season.png)\n")
+```
+
+```{r}
+#| label: explore-text
+#| echo: false
+#| results: asis
+cat(its_explain_explore(ex, prep))
+```
+<!-- /stage -->
+
+<!-- stage: ols -->
+# OLS 分段迴歸與殘差診斷
+
+```{r}
+#| label: ols
+spec <- its_spec(prep, st$season, st$K, covariates = st$model_covariates)
+m_ols <- its_fit(prep, spec, "ols", approved = TRUE)
+summary(m_ols)$coefficients[c("(Intercept)", "T", "X", "Tpost"), ]
+dg_ols <- its_diagnose(m_ols, prep, out_dir = "figures")
+print(dg_ols)
+knitr::include_graphics(dg_ols$plot)
+```
+
+```{r}
+#| label: ols-text
+#| echo: false
+#| results: asis
+cat(its_explain_diag(dg_ols))
+```
+<!-- /stage -->
+
+<!-- stage: ar_select -->
+# 選擇自相關結構
+
+```{r}
+#| label: ar
+ar <- its_select_ar(prep, spec, p_max = st$p_max)
+print(ar)
+```
+
+```{r}
+#| label: ar-text
+#| echo: false
+#| results: asis
+cat(sprintf("以 ML 估計比較 AR(0) 到 AR(%d) 誤差的 GLS，AIC 最小的是 AR(%d)。使用者確認採用 **AR(%d)**%s，並以 REML 重新配適作為主要模型。",
+            st$p_max, ar$best_p, st$p,
+            if (st$p != ar$best_p) sprintf("（與 AIC 建議不同，理由：%s）", st$p_reason) else ""))
+```
+<!-- /stage -->
+
+<!-- stage: final -->
+# 主要模型與效果估計
+
+```{r}
+#| label: final
+main <- its_fit(prep, spec, st$method, st$p, approved = TRUE)
+if (st$method == "gls") {
+  dg_main <- its_diagnose(main, prep, out_dir = "figures")
+  print(dg_main)
+}
+eff <- its_effects(main, prep)
+```
+
+```{r}
+#| label: final-diag-fig
+#| echo: false
+if (st$method == "gls") knitr::include_graphics(dg_main$plot)
+```
+
+```{r}
+#| label: final-table
+#| code-summary: "效果估計表"
+tab <- rbind(eff$table, eff$relative)
+knitr::kable(tab, digits = c(0, 3, 3, 3, 3, 4),
+             col.names = c("估計量", "估計值", "SE", "95% 下界", "95% 上界", "p 值"),
+             caption = sprintf("%s，95%% CI 以 t 分配（df = %d）計算；最後一列為比例", eff$model, eff$df))
+```
+
+```{r}
+#| label: final-diag-text
+#| echo: false
+#| results: asis
+if (st$method == "gls") {
+  cat(sprintf("主要模型 %s 的標準化殘差：\n\n", .its_label(main)))
+  cat(its_explain_diag(dg_main))
+} else {
+  cat("殘差沒有顯著自相關，主要模型採用 OLS。")
+}
+```
+
+```{r}
+#| label: final-plot
+#| fig-width: 8.5
+#| fig-height: 4.5
+its_plot(main, prep, y_label = st$y_label)$plot
+```
+
+藍線是模型配適值，紅色虛線是依介入前趨勢（含季節）延伸的反事實；兩者在介入後的差距就是介入效果。
+
+## 結果解釋
+
+```{r}
+#| label: final-text
+#| echo: false
+#| results: asis
+cat(its_explain(eff, prep, st$y_label, st$unit))
+```
+<!-- /stage -->
+
+<!-- stage: sensitivity -->
+# 敏感度分析
+
+```{r}
+#| label: sens
+sens <- its_sensitivity(main, prep, which = st$sens$which,
+                        covariates = st$sens$covariates,
+                        transition = st$sens$transition,
+                        pre_window = st$sens$pre_window, data = dat)
+print(sens)
+```
+
+```{r}
+#| label: sens-plot
+#| echo: false
+#| fig-width: 8
+#| fig-height: 3.8
+ss <- sens[!is.na(sens$b2) & sens$scale == "原尺度（差值）", ]
+ss$model <- factor(ss$model, levels = rev(ss$model))
+ggplot(ss, aes(b2, model)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_errorbarh(aes(xmin = b2_lower, xmax = b2_upper), height = 0.25, colour = "#1f6feb") +
+  geom_point(size = 2.4, colour = "#1f6feb") +
+  labs(x = "β2 水準變化（95% CI）", y = NULL, title = "各模型設定下的水準變化") +
+  theme_minimal()
+```
+
+```{r}
+#| label: sens-text
+#| echo: false
+#| results: asis
+cat(its_explain_sens(sens))
+```
+<!-- /stage -->
+
+# 限制
+
+```{r}
+#| label: limits
+#| echo: false
+#| results: asis
+lim <- c(
+  "ITS 是準實驗設計，效果的因果解釋建立在「沒有介入時介入前趨勢會延續」的假設上，這個假設無法直接檢定。",
+  sprintf("介入點附近的其他事件：%s。", st$context_events),
+  if (min(prep$info$n_pre, prep$info$n_post) < 24) sprintf("介入後只有 %d 個觀測，斜率變化的估計不確定性大；「不顯著」不等於「沒有效果」。", prep$info$n_post),
+  "本分析只有一條序列、沒有控制序列，無法排除同時期影響所有單位的共同因素。",
+  if (st$method == "gls") "GLS 需要估計自相關參數；本 skill 的模擬驗證顯示，小樣本下 95% CI 的實際涵蓋率約 92–93%（略窄），p 值在 .05 附近的結果要保守解讀。"
+)
+cat(paste0("- ", lim, collapse = "\n"))
+```
+
+# 確認紀錄與重現資訊
+
+```{r}
+#| label: decisions
+#| echo: false
+knitr::kable(st$decisions, col.names = c("確認項目", "使用者回答"))
+```
+
+```{r}
+#| label: session
+#| code-summary: "環境資訊"
+cat("資料 MD5：", tools::md5sum(st$data_file), "\n")
+cat("狀態保存時間：", st$saved_at, "\n")
+sessionInfo()
+```
