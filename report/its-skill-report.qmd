@@ -1,8 +1,6 @@
 ---
 title: "中斷時間序列（Interrupted Time Series, ITS）Skill"
 subtitle: "用分段迴歸判斷「事件發生後，有沒有改變？」"
-author: "蔡文凱（R26141073）"
-date: "2026-11-27"
 lang: zh-TW
 format:
   html:
