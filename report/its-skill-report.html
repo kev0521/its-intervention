@@ -5534,63 +5534,60 @@ window.Quarto = {
 <section id="核心模型分段迴歸" class="level1">
 <h1>02｜核心模型：分段迴歸</h1>
 <p><span class="math display">\[
-Y_t = \beta_0 + \beta_1 T_t + \beta_2 X_t + \beta_3 (T_t - T_0) X_t + \text{季節項} + \varepsilon_t
+Y_t = \beta_0 + \beta_1 T_t + \beta_2 X_t + \beta_3 (T_t - T_0) X_t + \gamma\,\text{季節項} + \varepsilon_t
 \]</span></p>
 <table class="caption-top table">
 <colgroup>
-<col style="width: 20%">
-<col style="width: 20%">
-<col style="width: 20%">
-<col style="width: 20%">
-<col style="width: 20%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
 </colgroup>
 <thead>
 <tr class="header">
-<th>符號</th>
-<th>意義</th>
-<th></th>
+<th>公式中的項</th>
+<th>變數的意義</th>
 <th>係數</th>
-<th>解釋</th>
+<th>係數的解釋</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><span class="math inline">\(T_t\)</span></td>
-<td>時間（1, 2, 3, …）</td>
-<td></td>
-<td><span class="math inline">\(\beta_1\)</span></td>
-<td>介入<strong>前</strong>的斜率</td>
+<td>截距</td>
+<td>—</td>
+<td><span class="math inline">\(\beta_0\)</span></td>
+<td>序列起點（<span class="math inline">\(T = 0\)</span>）的水準</td>
 </tr>
 <tr class="even">
-<td><span class="math inline">\(T_0\)</span></td>
-<td>介入開始的時間點</td>
-<td></td>
-<td><span class="math inline">\(\beta_2\)</span></td>
-<td><strong>水準變化</strong>：介入當下跳了多少</td>
+<td><span class="math inline">\(T_t\)</span></td>
+<td>時間：1, 2, 3, …</td>
+<td><span class="math inline">\(\beta_1\)</span></td>
+<td>介入<strong>前</strong>的斜率：每期變多少</td>
 </tr>
 <tr class="odd">
 <td><span class="math inline">\(X_t\)</span></td>
 <td>介入前 = 0，介入後 = 1</td>
-<td></td>
-<td><span class="math inline">\(\beta_3\)</span></td>
-<td><strong>斜率變化</strong>：介入後斜率 = <span class="math inline">\(\beta_1 + \beta_3\)</span></td>
+<td><span class="math inline">\(\beta_2\)</span></td>
+<td><strong>水準變化</strong>：介入當下跳了多少</td>
 </tr>
 <tr class="even">
 <td><span class="math inline">\((T_t - T_0)X_t\)</span></td>
-<td>介入後經過的時間</td>
-<td></td>
-<td><span class="math inline">\(\beta_2 + \beta_3 k\)</span></td>
-<td>介入後第 <span class="math inline">\(k\)</span> 期的效果</td>
+<td>介入後經過的期數（介入前 = 0）</td>
+<td><span class="math inline">\(\beta_3\)</span></td>
+<td><strong>斜率變化</strong>：介入後斜率 = <span class="math inline">\(\beta_1 + \beta_3\)</span></td>
 </tr>
 <tr class="odd">
 <td>季節項</td>
 <td>月資料用月份虛擬變數（季資料用季別）；年資料不加</td>
-<td></td>
-<td></td>
-<td>避免前後兩段涵蓋的月份不同而扭曲效果</td>
+<td><span class="math inline">\(\gamma\)</span></td>
+<td>各月份（季）的差異，避免前後兩段涵蓋的月份不同而扭曲效果</td>
 </tr>
 </tbody>
 </table>
+<ul>
+<li><span class="math inline">\(T_0\)</span> 是<strong>介入開始的時間點</strong>，是固定的常數，不是變數。</li>
+<li>介入後第 <span class="math inline">\(k\)</span> 期的效果 = <span class="math inline">\(\beta_2 + \beta_3 k\)</span>（當下的跳動，加上 <span class="math inline">\(k\)</span> 期累積的斜率改變）。</li>
+</ul>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-concept" class="quarto-float quarto-figure quarto-figure-center anchored">
